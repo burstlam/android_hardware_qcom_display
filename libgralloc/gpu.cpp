@@ -44,9 +44,7 @@ gpu_context_t::gpu_context_t(const private_module_t* module,
     common.module  = const_cast<hw_module_t*>(&module->base.common);
     common.close   = gralloc_close;
     alloc          = gralloc_alloc;
-#if 0
     allocSize      = gralloc_alloc_size;
-#endif
     free           = gralloc_free;
 
 }
@@ -146,11 +144,13 @@ int gpu_context_t::gralloc_alloc_buffer(size_t size, int usage,
         flags |= private_handle_t::PRIV_FLAGS_UNSYNCHRONIZED;
     }
 
-    if (usage & GRALLOC_USAGE_EXTERNAL_ONLY) {
+    if (usage & GRALLOC_USAGE_PRIVATE_EXTERNAL_ONLY) {
         flags |= private_handle_t::PRIV_FLAGS_EXTERNAL_ONLY;
         //The EXTERNAL_BLOCK flag is always an add-on
-        if (usage & GRALLOC_USAGE_EXTERNAL_BLOCK) {
+        if (usage & GRALLOC_USAGE_PRIVATE_EXTERNAL_BLOCK) {
             flags |= private_handle_t::PRIV_FLAGS_EXTERNAL_BLOCK;
+        }if (usage & GRALLOC_USAGE_PRIVATE_EXTERNAL_CC) {
+            flags |= private_handle_t::PRIV_FLAGS_EXTERNAL_CC;
         }
     }
 

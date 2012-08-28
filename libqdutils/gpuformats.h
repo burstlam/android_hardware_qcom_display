@@ -1,6 +1,4 @@
-/*
- * Copyright (c) 2012, Code Aurora Forum. All rights reserved.
-
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
  * met:
@@ -26,54 +24,29 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-#include <cutils/log.h>
-#include <fcntl.h>
-#include <linux/fb.h>
-#include "mdp_version.h"
+#ifndef QCOM_GPUFORMATS_H
+#define QCOM_GPUFORMATS_H
+#include <gralloc_priv.h>
 
-ANDROID_SINGLETON_STATIC_INSTANCE(qdutils::MDPVersion);
 namespace qdutils {
-
-MDPVersion::MDPVersion()
+/*
+ * Checks if the format is supported by the GPU.
+ *
+ * @param: format to check
+ *
+ * @return true if the format is supported by the GPU.
+ */
+static inline bool isGPUSupportedFormat(int format)
 {
-    int fb_fd = open("/dev/graphics/fb0", O_RDWR);
-    int mdp_version = MDP_V_UNKNOWN;
-    char panel_type = 0;
-    struct fb_fix_screeninfo fb_finfo;
-    if (ioctl(fb_fd, FBIOGET_FSCREENINFO, &fb_finfo) < 0) {
-        ALOGE("FBIOGET_FSCREENINFO failed");
-        mdp_version =  MDP_V_UNKNOWN;
-    } else {
-        if(!strncmp(fb_finfo.id, "msmfb", 5)) {
-            char str_ver[4] = { 0 };
-            memcpy(str_ver, &fb_finfo.id[5], 3);
-            str_ver[3] = '\0';
-            mdp_version = atoi(str_ver);
-
-            //Normalize MDP version to ease comparison.
-            //This is needed only because
-            //MDP 3.0.3 reports value as 303 which
-            //is more than all the others
-            if (mdp_version < 100)
-                mdp_version *= 10;
-
-        } else if (!strncmp(fb_finfo.id, "mdssfb", 6)) {
-            mdp_version = MDSS_V5;
-        } else {
-            mdp_version = MDP_V_UNKNOWN;
-        }
-        int len = strlen("msmfbXX_");
-        if (mdp_version == MDP_V3_0_3)
-            len++;
-        panel_type = fb_finfo.id[len];
-
+    if ((format == HAL_PIXEL_FORMAT_RGB_888)      ||
+        (format == HAL_PIXEL_FORMAT_YCrCb_422_SP) ||
+        (format == HAL_PIXEL_FORMAT_YCbCr_422_SP)) {
+        return false;
     }
-    close(fb_fd);
-    mMDPVersion = mdp_version;
-    mHasOverlay = false;
-    if((mMDPVersion >= MDP_V4_0) || (mMDPVersion == MDP_V_UNKNOWN))
-        mHasOverlay = true;
-    mPanelType = panel_type;
+    return true;
 }
 }; //namespace qdutils
 
+
+
+#endif /* end of include guard: QCOM_GPUFORMATS_H */

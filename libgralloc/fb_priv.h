@@ -20,16 +20,10 @@
 #include <linux/fb.h>
 
 #define NUM_FRAMEBUFFERS_MIN  2
-//XXX: Enable triple framebuffers
-#define NUM_FRAMEBUFFERS_MAX  2
+#define NUM_FRAMEBUFFERS_MAX  3
 
 #define NO_SURFACEFLINGER_SWAPINTERVAL
 #define COLOR_FORMAT(x) (x & 0xFFF) // Max range for colorFormats is 0 - FFF
-
-enum hdmi_mirroring_state {
-    HDMI_NO_MIRRORING,
-    HDMI_UI_MIRRORING,
-};
 
 struct private_handle_t;
 
@@ -48,28 +42,21 @@ struct private_module_t {
     uint32_t numBuffers;
     uint32_t bufferMask;
     pthread_mutex_t lock;
-    buffer_handle_t currentBuffer;
+    private_handle_t *currentBuffer;
     struct fb_var_screeninfo info;
     struct fb_fix_screeninfo finfo;
     float xdpi;
     float ydpi;
     float fps;
     uint32_t swapInterval;
-#if defined(__cplusplus) && defined(HDMI_DUAL_DISPLAY)
-    int orientation;
-    int videoOverlay; // VIDEO_OVERLAY - 2D or 3D
-    int secureVideoOverlay; // VideoOverlay is secure
     uint32_t currentOffset;
-    int enableHDMIOutput; // holds the type of external display
-    bool trueMirrorSupport;
-    bool exitHDMIUILoop;
-    float actionsafeWidthRatio;
-    float actionsafeHeightRatio;
-    bool hdmiStateChanged;
-    hdmi_mirroring_state hdmiMirroringState;
-    pthread_mutex_t overlayLock;
-    pthread_cond_t overlayPost;
-#endif
+    bool fbPostDone;
+    pthread_mutex_t fbPostLock;
+    //Condition to inform HWC that fb_post called
+    pthread_cond_t fbPostCond;
+    bool fbPanDone;
+    pthread_mutex_t fbPanLock;
+    pthread_cond_t fbPanCond;
 };
 
 

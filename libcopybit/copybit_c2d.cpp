@@ -126,6 +126,7 @@ struct copybit_context_t {
     int fb_width;
     int fb_height;
     bool isPremultipliedAlpha;
+    bool mBlitToFB;
 };
 
 struct blitlist{
@@ -446,7 +447,7 @@ static int set_image( uint32 surfaceId, const struct copybit_image_t *rhs,
         info.height = rhs->h;
         info.format = rhs->format;
 
-        yuvPlaneInfo yuvInfo;
+        yuvPlaneInfo yuvInfo = {0};
         status = calculate_yuv_offset_and_stride(info, yuvInfo);
         if(status != COPYBIT_SUCCESS) {
             ALOGE("%s: calculate_yuv_offset_and_stride error", __FUNCTION__);
@@ -701,7 +702,7 @@ static void set_rects(struct copybit_context_t *ctx,
 /** copy the bits */
 static int msm_copybit(struct copybit_context_t *dev, blitlist *list, uint32 target)
 {
-    int objects;
+    unsigned int objects;
 
     for(objects = 0; objects < list->count; objects++) {
         list->blitObjects[objects].next = &(list->blitObjects[objects+1]);
@@ -782,6 +783,16 @@ static int set_parameter_copybit(
             break;
         case COPYBIT_FRAMEBUFFER_HEIGHT:
             ctx->fb_height = value;
+            break;
+        case COPYBIT_BLIT_TO_FRAMEBUFFER:
+            if (COPYBIT_ENABLE == value) {
+                ctx->mBlitToFB = value;
+            } else if (COPYBIT_DISABLE == value) {
+                ctx->mBlitToFB = value;
+            } else {
+              ALOGE ("%s:Invalid input for COPYBIT_BLIT_TO_FRAMEBUFFER : %d",
+                                                         __FUNCTION__, value);
+            }
             break;
         default:
             ALOGE("%s: default case param=0x%x", __FUNCTION__, name);

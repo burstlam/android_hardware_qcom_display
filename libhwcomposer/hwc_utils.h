@@ -17,29 +17,55 @@
 
 #ifndef HWC_UTILS_H
 #define HWC_UTILS_H
-#include <cutils/log.h>
-#include <gralloc_priv.h>
-#include <hardware/hwcomposer.h>
-#include <hardware/hardware.h>
-#include <hardware/gralloc.h>
-#include <stdlib.h>
-#include <string.h>
-#include <fb_priv.h>
-#include <overlay.h>
-#include <genlock.h>
-#include "hwc_qbuf.h"
 
-#define ALIGN(x, align)     (((x) + ((align)-1)) & ~((align)-1))
+#include <hardware/hwcomposer.h>
+#include <gralloc_priv.h>
+
+#define ALIGN_TO(x, align)     (((x) + ((align)-1)) & ~((align)-1))
 #define LIKELY( exp )       (__builtin_expect( (exp) != 0, true  ))
 #define UNLIKELY( exp )     (__builtin_expect( (exp) != 0, false ))
+#define FINAL_TRANSFORM_MASK 0x000F
 
+//Fwrd decls
 struct hwc_context_t;
+struct framebuffer_device_t;
+
+namespace hwcService {
+class HWComposerService;
+}
+
+namespace overlay {
+class Overlay;
+}
+
 namespace qhwc {
+//fwrd decl
+class QueuedBufferStore;
+class ExternalDisplay;
+class CopybitEngine;
+
+struct MDPInfo {
+    int version;
+    char panel;
+    bool hasOverlay;
+};
 
 enum external_display_type {
     EXT_TYPE_NONE,
     EXT_TYPE_HDMI,
     EXT_TYPE_WIFI
+};
+enum HWCCompositionType {
+    HWC_USE_GPU = HWC_FRAMEBUFFER, // This layer is to be handled by
+                                   //                 Surfaceflinger
+    HWC_USE_OVERLAY = HWC_OVERLAY, // This layer is to be handled by the overlay
+    HWC_USE_COPYBIT                // This layer is to be handled by copybit
+};
+
+enum {
+    HWC_MDPCOMP = 0x00000002,
+    HWC_LAYER_RESERVED_0 = 0x00000004,
+    HWC_LAYER_RESERVED_1 = 0x00000008
 };
 
 
@@ -47,10 +73,17 @@ enum external_display_type {
 // Utility functions - implemented in hwc_utils.cpp
 void dumpLayer(hwc_layer_t const* l);
 void getLayerStats(hwc_context_t *ctx, const hwc_layer_list_t *list);
-void handleYUV(hwc_context_t *ctx, hwc_layer_t *layer);
 void initContext(hwc_context_t *ctx);
 void closeContext(hwc_context_t *ctx);
-void openFramebufferDevice(hwc_context_t *ctx);
+//Crops source buffer against destination and FB boundaries
+void calculate_crop_rects(hwc_rect_t& crop, hwc_rect_t& dst,
+        const int fbWidth, const int fbHeight);
+
+// Waits for the fb_post to be called
+void wait4fbPost(hwc_context_t* ctx);
+
+// Waits for the fb_post to finish PAN (primary commit)
+void wait4Pan(hwc_context_t* ctx);
 
 // Inline utility functions
 static inline bool isSkipLayer(const hwc_layer_t* l) {
@@ -67,53 +100,63 @@ static inline bool isBufferLocked(const private_handle_t* hnd) {
     return (hnd && (private_handle_t::PRIV_FLAGS_HWC_LOCK & hnd->flags));
 }
 
-// -----------------------------------------------------------------------------
-// Overlay specific functions - inline or implemented in hwc_overlay.cpp
-bool prepareOverlay(hwc_context_t *ctx, hwc_layer_t *layer);
-//XXX: Refine draw functions
-bool drawLayerUsingOverlay(hwc_context_t *ctx, hwc_layer_t *layer);
-//XXX: Refine
-void cleanOverlays(hwc_context_t *ctx );
-void setOverlayState(hwc_context_t* ctx, ovutils::eOverlayState state);
+//Return true if buffer is for external display only
+static inline bool isExtOnly(const private_handle_t* hnd) {
+    return (hnd && (hnd->flags & private_handle_t::PRIV_FLAGS_EXTERNAL_ONLY));
+}
 
-// -----------------------------------------------------------------------------
-// Copybit specific functions - inline or implemented in hwc_copybit.cpp
+//Return true if buffer is for external display only with a BLOCK flag.
+static inline bool isExtBlock(const private_handle_t* hnd) {
+    return (hnd && (hnd->flags & private_handle_t::PRIV_FLAGS_EXTERNAL_BLOCK));
+}
 
+//Return true if buffer is for external display only with a Close Caption flag.
+static inline bool isExtCC(const private_handle_t* hnd) {
+    return (hnd && (hnd->flags & private_handle_t::PRIV_FLAGS_EXTERNAL_CC));
+}
 
+// Initialize uevent thread
+void init_uevent_thread(hwc_context_t* ctx);
 
-// -----------------------------------------------------------------------------
-// HDMI specific functions - inline or implemented in hwc_hdmi.cpp
-
-
-
-} //qhwc namespace
-
-
+inline void getLayerResolution(const hwc_layer_t* layer,
+                                         int& width, int& height)
+{
+    hwc_rect_t displayFrame  = layer->displayFrame;
+    width = displayFrame.right - displayFrame.left;
+    height = displayFrame.bottom - displayFrame.top;
+}
+}; //qhwc namespace
 
 // -----------------------------------------------------------------------------
 // HWC context
 // This structure contains overall state
 struct hwc_context_t {
     hwc_composer_device_t device;
-    // Layer variables
-    int yuvBufferCount;
-    int hdmiEnabled;
     int numHwLayers;
-    int mdpVersion;
-    bool hasOverlay;
-    bool skipComposition;
+    int overlayInUse;
+    int deviceOrientation;
+    int swapInterval;
 
     //Framebuffer device
-    framebuffer_device_t *fbDev;
+    framebuffer_device_t *mFbDev;
+
+    //Copybit Engine
+    qhwc::CopybitEngine* mCopybitEngine;
 
     //Overlay object - NULL for non overlay devices
     overlay::Overlay *mOverlay;
 
     //QueuedBufferStore to hold buffers for overlay
     qhwc::QueuedBufferStore *qbuf;
+
+    //HWComposerService object
+    hwcService::HWComposerService *mHwcService;
+
+    // External display related information
+    qhwc::ExternalDisplay *mExtDisplay;
+
+    qhwc::MDPInfo mMDP;
+
 };
-
-
-
 
 #endif //HWC_UTILS_H

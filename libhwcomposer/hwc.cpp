@@ -130,14 +130,14 @@ static int hwc_prepare(hwc_composer_device_t *dev, hwc_layer_list_t* list)
             ctx->overlayInUse = false;
             ctx->mOverlay->setState(ovutils::OV_CLOSED);
         }
+#ifndef USES_LEGACY_GRAPHICS
+        qdutils::CBUtils::checkforGPULayer(list);
+#endif
     } else {
         ctx->overlayInUse = false;
         ctx->mOverlay->setState(ovutils::OV_CLOSED);
         ctx->qbuf->unlockAll();
 
-#ifndef USES_LEGACY_GRAPHICS
-        qdutils::CBUtils::checkforGPULayer(list);
-#endif
     }
     return 0;
 }

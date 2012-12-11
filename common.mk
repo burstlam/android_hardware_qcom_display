@@ -19,7 +19,6 @@ common_libs := liblog libutils libcutils libhardware
 
 #Common C flags
 common_flags := -DDEBUG_CALC_FPS -Wno-missing-field-initializers
-common_flags += -Werror
 
 #TODO
 #ifeq ($(call is-vendor-board-platform,QCOM),true)
@@ -29,6 +28,18 @@ endif
 
 ifeq ($(ARCH_ARM_HAVE_NEON),true)
     common_flags += -D__ARM_HAVE_NEON
+endif
+
+ifneq ($(TARGET_USES_ION), false)
+    common_flags += -DUSE_ION
+endif
+
+ifeq ($(BOARD_HAS_NO_HDMI),true)
+    common_flags += -DNO_HDMI
+endif
+
+ifeq ($(TARGET_NO_HW_OVERLAY),true)
+    common_flags += -DNO_HW_OVERLAY
 endif
 
 common_deps  :=
